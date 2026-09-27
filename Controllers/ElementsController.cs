@@ -25,9 +25,14 @@ public class ElementsController : ControllerBase
     {
         if (request is null)
         {
-            return Ok(ElementExtractResponse.Failure(
-                ErrorCodes.MissingParameter,
-                "request body is required and must be valid JSON"));
+            var detail = ModelState.ErrorCount > 0
+                ? string.Join("; ", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage)
+                        ? "invalid request body"
+                        : e.ErrorMessage))
+                : "request body is required and must be valid JSON";
+            return Ok(ElementExtractResponse.Failure(ErrorCodes.MissingParameter, detail));
         }
 
         var validation = await _validator.ValidateAsync(request, cancellationToken);

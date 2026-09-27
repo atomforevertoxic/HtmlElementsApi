@@ -4,6 +4,8 @@ using FluentValidation;
 using HtmlElementsApi.Models;
 using HtmlElementsApi.Services;
 using HtmlElementsApi.Validators;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +22,7 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<IClientErrorFactory, ClientErrorResponseFactory>();
 
 var connectionString = builder.Configuration.GetConnectionString("ElementsDb")
     ?? throw new InvalidOperationException("Connection string 'ElementsDb' is not configured");
@@ -58,7 +61,10 @@ static async Task InitDatabaseAsync(IServiceProvider services)
 
     var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseInit");
 
-    for (var attempt = 1; attempt <= 15; attempt++)
+    const int maxAttempts = 15;
+    var retryDelay = TimeSpan.FromSeconds(2);
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
     {
         try
         {
@@ -69,7 +75,7 @@ static async Task InitDatabaseAsync(IServiceProvider services)
         }
         catch (Exception ex)
         {
-            if (attempt == 15)
+            if (attempt == maxAttempts)
             {
                 logger.LogWarning(
                     "Database schema init failed after {Attempts} attempts: {Message}. The app will start; requests will return DB_ERROR until the database is reachable.",
@@ -79,10 +85,22 @@ static async Task InitDatabaseAsync(IServiceProvider services)
             }
 
             logger.LogWarning(
-                "Database is not ready (attempt {Attempt}/15): {Message}. Retrying in 2s...",
+                "Database is not ready (attempt {Attempt}/{MaxAttempts}): {Message}. Retrying in {Delay}s...",
                 attempt,
-                ex.Message);
-            await Task.Delay(TimeSpan.FromSeconds(2));
+                maxAttempts,
+                ex.Message,
+                retryDelay.TotalSeconds);
+            await Task.Delay(retryDelay);
         }
     }
+}
+
+public sealed class ClientErrorResponseFactory : IClientErrorFactory
+{
+    public IActionResult GetClientError(
+        ActionContext context,
+        IClientErrorActionResult error) =>
+        new OkObjectResult(ElementExtractResponse.Failure(
+            ErrorCodes.MissingParameter,
+            "Content-Type must be application/json and the request body must be valid JSON"));
 }

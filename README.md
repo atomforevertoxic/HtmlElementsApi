@@ -84,7 +84,7 @@ Content-Type: `application/json`. Имена полей — `snake_case`, JSON �
 
 | `error_code` | Когда |
 |---|---|
-| `MISSING_PARAMETER` | отсутствует обязательное поле / пустое тело / битый JSON |
+| `MISSING_PARAMETER` | отсутствует обязательное поле / пустое тело / битый JSON / неверный Content-Type |
 | `EMPTY_SELECTOR` | `selector` пустой |
 | `EMPTY_ATTRIBUTE` | `attribute` пустой |
 | `INVALID_URL_BASE64` | `url_b64` не является корректным Base64 |
@@ -196,6 +196,18 @@ curl -X POST http://localhost:8090/api/elements \
 - **DDL при старте** (`CREATE TABLE IF NOT EXISTS elements ...`) с retry 15 × 2 сек:
   приложение дожидается БД, но и без неё запускается (лог-ворнинг) — запросы вернут `DB_ERROR`.
 - Валидация — FluentValidation с `CascadeMode.Stop`, каждое правило с `WithErrorCode`.
+
+## Edge cases
+
+- **Content-Type:** тело принимается только как `application/json`; иной Content-Type (например,
+  `curl -d` без `-H`) → **200**, `is_error=1`, `MISSING_PARAMETER` (оболочка ответа не нарушается).
+- **Не-POST методы** (`GET`, `PUT`, ...) → 405 без тела — стандартное поведение ASP.NET Core на уровне
+  роутинга; ТЗ требует обработки только для POST.
+- **Повторные запросы** с тем же payload добавляют новые строки в `elements` (дубликаты ТЗ не
+  запрещены) — после `docker compose down -v` и двух запросов счётчик будет ровно 247.
+- **ECB + `PaddingMode.None`** (по спецификации ТЗ) не даёт проверки целостности: ключ валидной
+  длины, но неверный, может вернуть `is_error=0` с «мусорным» `decrypted_plain_text`, если байты
+  случайно оказываются валидным UTF-8. С `decrypted` из тестовых данных это не воспроизводится.
 
 ## Заметки по окружению
 
