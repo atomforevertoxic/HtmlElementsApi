@@ -28,7 +28,7 @@ services:
       POSTGRES_PASSWORD: elements_pass
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U elements_user -d elements_db"]
       interval: 5s
@@ -41,11 +41,15 @@ services:
     ports:
       - "8080:80"
     environment:
-      PGADMIN_SERVER_MODE: "OFF"
       PGADMIN_DEFAULT_EMAIL: admin@admin.local
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_DISABLE_POSTFIX: "1"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_CONFIG_ALLOW_SPECIAL_EMAIL_DOMAINS: "['local']"
+      PGADMIN_CONFIG_DATA_DIR: "'/var/lib/pgadmin'"
+      PGADMIN_CONFIG_SQLITE_PATH: "'/var/lib/pgadmin/pgadmin4.db'"
+      PGADMIN_CONFIG_STORAGE_DIR: "'/var/lib/pgadmin/storage'"
     volumes:
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
       - pgadmin_data:/var/lib/pgadmin
