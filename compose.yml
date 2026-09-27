@@ -1,0 +1,56 @@
+services:
+  api:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /app
+    volumes:
+      - .:/app
+      - nuget_cache:/root/.nuget/packages
+    ports:
+      - "8090:8090"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_NOLOGO: "1"
+      ConnectionStrings__ElementsDb: "Host=db;Port=5432;Database=elements_db;Username=elements_user;Password=elements_pass"
+    command: >
+      sh -c "rm -rf bin obj
+      && dotnet restore
+      && dotnet build --no-restore
+      && dotnet run --no-build --no-launch-profile --urls http://0.0.0.0:8090"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: elements_db
+      POSTGRES_USER: elements_user
+      POSTGRES_PASSWORD: elements_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elements_user -d elements_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_SERVER_MODE: "OFF"
+      PGADMIN_DEFAULT_EMAIL: admin@admin.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DISABLE_POSTFIX: "1"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  pgdata:
+  nuget_cache:
+  pgadmin_data:

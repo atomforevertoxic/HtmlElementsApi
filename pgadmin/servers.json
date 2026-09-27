@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "elements-db",
+      "Group": "Servers",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "elements_db",
+      "Username": "elements_user",
+      "SSLMode": "prefer"
+    }
+  }
+}
